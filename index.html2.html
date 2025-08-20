@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Explorer Gallery</title>
+  <style>
+    :root{
+      --lime: #84cc16;
+      --lime-strong: #65a30d;
+      --white: #ffffff;
+      --muted: #6b7280;
+      --card-border: rgba(132,204,22,0.18);
+      --shadow: rgba(0,0,0,0.08);
+    }
+    *{box-sizing:border-box}
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      margin: 0;
+      background: var(--white);
+      color: #0f172a;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    header {
+      background: linear-gradient(90deg,var(--lime),var(--lime-strong));
+      color: white;
+      text-align: center;
+      padding: 1.25rem 1rem;
+      box-shadow: 0 6px 18px rgba(132,204,22,0.12);
+    }
+    header h1{margin:0;font-size:1.5rem}
+    header p{margin:6px 0 0;font-size:0.95rem;opacity:.95}
+
+    .controls{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;padding:1rem}
+    .search-bar{flex:1;min-width:260px;max-width:720px}
+    #searchInput{
+      width:100%;padding:10px 14px;border-radius:10px;border:2px solid var(--card-border);font-size:1rem;outline:none
+    }
+    #searchInput:focus{box-shadow:0 6px 18px var(--card-border);border-color:var(--lime-strong)}
+
+    .categories{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .categories button{
+      background:transparent;border:2px solid transparent;padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:600;color:var(--lime-strong);background:transparent;transition:all .18s
+    }
+    .categories button[data-active="true"]{background:linear-gradient(90deg,var(--lime),var(--lime-strong));color:white;box-shadow:0 8px 30px var(--card-border);transform:translateY(-2px)}
+
+    .meta-row{display:flex;justify-content:space-between;align-items:center;padding:0 1rem 6px}
+    .counts{color:var(--muted);font-size:.95rem}
+
+    .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;padding:1rem;max-width:1200px;margin:0 auto}
+    .card{
+      background:var(--white);border-radius:12px;border:1px solid var(--card-border);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:stretch;transition:transform .18s,box-shadow .18s
+    }
+    .card:hover{transform:translateY(-6px);box-shadow:0 12px 30px var(--shadow)}
+    .card img{width:100%;height:150px;object-fit:cover;display:block}
+    .card .card-body{padding:10px 12px;text-align:center}
+    .card h3{margin:0;font-size:1rem;color:#052e16}
+
+    /* Modal */
+    .modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(2,6,23,0.6);align-items:center;justify-content:center;padding:20px}
+    .modal[aria-hidden="false"]{display:flex}
+    .modal-panel{background:var(--white);max-width:780px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(2,6,23,0.4)}
+    .modal-top{display:flex;gap:12px;align-items:flex-start;padding:12px}
+    .modal-top img{width:320px;height:220px;object-fit:cover}
+    .modal-content{padding:12px}
+    .modal-content h2{margin:0 0 8px}
+    .modal-content p{margin:0;color:var(--muted)}
+    .modal-actions{display:flex;justify-content:flex-end;padding:12px;gap:8px}
+    .btn{background:var(--lime);border:none;padding:8px 12px;border-radius:8px;color:white;cursor:pointer}
+    .btn.secondary{background:transparent;border:1px solid var(--card-border);color:#0f172a}
+
+    footer{padding:18px;text-align:center;color:var(--muted);font-size:.9rem}
+
+    @media (max-width:640px){
+      .modal-top{flex-direction:column;align-items:center}
+      .modal-top img{width:100%;height:220px}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 Plant Explorer Gallery</h1>
+    <p>Click any plant to view care tips — search filters by plant name only.</p>
+  </header>
+
+  <div class="controls">
+    <div class="search-bar">
+      <input id="searchInput" type="search" placeholder="Search plants by name..." aria-label="Search plants by name">
+    </div>
+
+    <div class="categories" role="tablist" aria-label="Plant categories">
+      <button data-cat="all" data-active="true" onclick="filterCategory('all')">All</button>
+      <button data-cat="flowers" onclick="filterCategory('flowers')">Flowers</button>
+      <button data-cat="fruits" onclick="filterCategory('fruits')">Fruits</button>
+      <button data-cat="exotic" onclick="filterCategory('exotic')">Exotic</button>
+      <button data-cat="vegetables" onclick="filterCategory('vegetables')">Vegetables</button>
+    </div>
+  </div>
+
+  <div class="meta-row">
+    <div class="counts" id="counts">Showing <strong id="shownCount">0</strong> of <span id="totalCount">0</span> plants</div>
+  </div>
+
+  <main class="gallery" id="gallery" aria-live="polite"></main>
+
+  <!-- Modal -->
+  <div id="plantModal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-top">
+        <img id="modalImage" src="" alt="Selected plant image">
+        <div class="modal-content">
+          <h2 id="modalTitle"></h2>
+          <p id="modalTip"></p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Images are hotlinked from Wikimedia/Unsplash; replace with local assets if needed.</footer>
+
+  <script>
+    // --- Plant dataset (60 plants: 15 per category) ---
+    const plants = [
+      // Flowers
+      {name:'Rose', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/b/bf/Red_rose.jpg', tip:'Full sun, regular watering; deadhead to promote blooms.'},
+      {name:'Tulip', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/0/0c/Tulip_-_floriade_canberra.jpg', tip:'Plant bulbs in autumn; well-drained soil.'},
+      {name:'Sunflower', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/4/40/Sunflower_sky_backdrop.jpg', tip:'Needs full sun and deep, infrequent watering.'},
+      {name:'Daisy', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/6/6f/Leucanthemum_vulgare_-_Oxeye_daisy_02.jpg', tip:'Bright sun, regular deadheading.'},
+      {name:'Orchid', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/7/7e/Orchid_flower_in_HKU.JPG', tip:'Bright, indirect light; water when potting mix is nearly dry.'},
+      {name:'Lily', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/e/e3/Lilium_bulbiferum_LC0108.jpg', tip:'Moist, well-drained soil; full to part sun.'},
+      {name:'Marigold', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/c/cf/Tagetes_erecta1.jpg', tip:'Sunny spots and moderate watering.'},
+      {name:'Lavender', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/8/8d/Lavandula_angustifolia_Bruges.jpg', tip:'Full sun; very well-drained soil; drought tolerant.'},
+      {name:'Jasmine', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/3/3a/Jasminum_officinale_001.JPG', tip:'Climbing support, regular watering in warm months.'},
+      {name:'Chrysanthemum', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/9/9d/Chrysanthemum_indicum1.jpg', tip:'Full sun, regular moisture; pinch to encourage bushiness.'},
+      {name:'Hibiscus', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/0/0b/Hibiscus_flower.jpg', tip:'Warm temperatures, plenty of water and sun.'},
+      {name:'Peony', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/d/d0/Paeonia_lactiflora2.jpg', tip:'Cold winters help bud set; plant shallowly.'},
+      {name:'Carnation', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/f/f8/Dianthus_caryophyllus2.jpg', tip:'Cool temperatures, well-drained soil.'},
+      {name:'Petunia', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/2/2e/Petunia_%28Petunia_x_hybrida%29.jpg', tip:'Full sun, keep soil evenly moist and deadhead.'},
+      {name:'Pansy', category:'flowers', img:'https://upload.wikimedia.org/wikipedia/commons/2/23/Pansy_flower.JPG', tip:'Cool weather lover; regular watering.'},
+
+      // Fruits
+      {name:'Apple', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg', tip:'Full sun, winter pruning and thinning for quality fruit.'},
+      {name:'Banana', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/8/8a/Banana-Single.jpg', tip:'Warm, humid conditions and regular feeding.'},
+      {name:'Mango', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/9/90/Hapus_Mango.jpg', tip:'Tropical heat, full sun and deep watering.'},
+      {name:'Orange', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/c/c4/Orange-Fruit-Pieces.jpg', tip:'Lots of sun and well-drained soil; citrus feed.'},
+      {name:'Strawberry', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/2/29/PerfectStrawberry.jpg', tip:'Mulch to keep clean, full sun to part shade.'},
+      {name:'Grapes', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/1/1a/Table_grapes_on_white.jpg', tip:'Trellis support, prune for fruiting wood.'},
+      {name:'Pineapple', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/c/cb/Pineapple_and_cross_section.jpg', tip:'Tropical/subtropical; sandy, well-drained soil.'},
+      {name:'Papaya', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/f/f0/Papaya_cross_section_BNC.jpg', tip:'Warm climates, rich soil, protect from wind.'},
+      {name:'Peach', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peach.jpg', tip:'Chill hours required; thin fruit for size.'},
+      {name:'Pear', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/4/40/Pear_photo.jpg', tip:'Full sun, deep watering during dry spells.'},
+      {name:'Cherry', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/b/bb/Cherry_Stella444.jpg', tip:'Cold winters for bloom set; protect from birds.'},
+      {name:'Kiwi', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/d/d3/Kiwi_aka.jpg', tip:'Require sturdy trellis and male/female pairing.'},
+      {name:'Guava', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/7/70/Guava_ID.jpg', tip:'Tropical, regular water and sunlight.'},
+      {name:'Blueberry', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/2/20/Blueberries.jpg', tip:'Acidic soil and consistent moisture.'},
+      {name:'Watermelon', category:'fruits', img:'https://upload.wikimedia.org/wikipedia/commons/f/f6/Watermelon_cross_BNC.jpg', tip:'Warm soil, lots of space, consistent watering.'},
+
+      // Exotic
+      {name:'Bonsai', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/5/57/Bonsai_IMG_6426.jpg', tip:'Regular pruning and precise watering.'},
+      {name:'Cactus', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/9/9d/Cactus_on_white.jpg', tip:'Very little water, lots of bright light.'},
+      {name:'Aloe Vera', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/5/56/Aloe_vera_flower.JPG', tip:'Sandy mix and infrequent watering.'},
+      {name:'Venus Flytrap', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/a/a6/Venus_Flytrap_showing_trigger_hairs.jpg', tip:'Use distilled water, keep soil moist.'},
+      {name:'Bamboo', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/9/91/Bamboo_forest.jpg', tip:'Frequent water, space to spread.'},
+      {name:'Snake Plant', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/3/31/Snake_Plant.jpg', tip:'Tolerates low light and drought.'},
+      {name:'Fiddle Leaf Fig', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/2/23/Ficus_lyrata.jpg', tip:'Bright, indirect light and stable conditions.'},
+      {name:'Bird of Paradise', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/4/4a/Strelitzia_reginae2.jpg', tip:'Needs bright light and humidity.'},
+      {name:'Dragon Tree', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/d/d2/Dracaena_draco_tree.jpg', tip:'Partial shade, moderate water.'},
+      {name:'ZZ Plant', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/6/6d/Zamioculcas_zamiifolia.jpg', tip:'Low light tolerant, water sparingly.'},
+      {name:'Monstera', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/d/d9/Monstera_deliciosa2.jpg', tip:'Bright indirect light, provide a support to climb.'},
+      {name:'Croton', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/6/62/Codiaeum_variegatum3.jpg', tip:'Bright light to keep colors vibrant.'},
+      {name:'Agave', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/9/95/Agave_americana2.jpg', tip:'Full sun and very little water.'},
+      {name:'Palm', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/e/e6/Areca_palm.jpg', tip:'Partial shade, consistent humidity.'},
+      {name:'Rubber Plant', category:'exotic', img:'https://upload.wikimedia.org/wikipedia/commons/5/59/Ficus_elastica_leaf.jpg', tip:'Bright indirect light and weekly watering.'},
+
+      // Vegetables
+      {name:'Tomato', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/8/89/Tomato_je.jpg', tip:'Full sun, regular feeding and staking.'},
+      {name:'Potato', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/6/60/Kartoffeln.jpg', tip:'Loose soil and hilling for tuber development.'},
+      {name:'Carrot', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/9/9b/Carrot_on_White.jpg', tip:'Deep, stone-free soil and consistent moisture.'},
+      {name:'Cabbage', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/2/26/Cabbage_and_cross_section.jpg', tip:'Cool season crop, keep soil moist.'},
+      {name:'Broccoli', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/0/03/Broccoli_and_cross_section_edit.jpg', tip:'Cool weather, regular watering.'},
+      {name:'Spinach', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/0/07/Spinacia_oleracea_Spinach_Leaves.jpg', tip:'Fast-growing, prefers cool conditions.'},
+      {name:'Lettuce', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/6/61/Lettuce_Mini_Green.jpg', tip:'Succession sowing and even moisture.'},
+      {name:'Cucumber', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/9/9c/Cucumber_and_cross_section.jpg', tip:'Warm weather, trellis for vines.'},
+      {name:'Onion', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/0/0f/Onion_on_White.jpg', tip:'Full sun and well-drained soil.'},
+      {name:'Garlic', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/3/33/Garlic_Bulbs.jpg', tip:'Plant in cool weather, stop watering near harvest.'},
+      {name:'Chili Pepper', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/8/8c/Red_chili_peppers.jpg', tip:'Warmth and full sun; keep soil warm.'},
+      {name:'Eggplant', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/9/92/Eggplants.jpg', tip:'Warm temperatures and regular feeding.'},
+      {name:'Peas', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/2/2b/Peas_are_in_a_pod.jpg', tip:'Cool season and support for vines.'},
+      {name:'Corn', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/3/34/Sweet_corn.jpg', tip:'Plant in blocks for pollination, full sun.'},
+      {name:'Okra', category:'vegetables', img:'https://upload.wikimedia.org/wikipedia/commons/4/45/Okra.jpg', tip:'Heat lover; pick pods young.'}
+    ];
+
+    // --- State ---
+    let activeCategory = 'all';
+    let searchQuery = '';
+
+    // --- DOM refs ---
+    const gallery = document.getElementById('gallery');
+    const searchInput = document.getElementById('searchInput');
+    const countsShown = document.getElementById('shownCount');
+    const countsTotal = document.getElementById('totalCount');
+    const modal = document.getElementById('plantModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalImage = document.getElementById('modalImage');
+    const modalTip = document.getElementById('modalTip');
+
+    countsTotal.textContent = plants.length;
+
+    // --- Render gallery based on filters ---
+    function renderGallery(){
+      gallery.innerHTML = '';
+      const matches = plants.filter(p => {
+        const inCategory = (activeCategory === 'all') || (p.category.toLowerCase() === activeCategory);
+        const matchesName = p.name.toLowerCase().includes(searchQuery);
+        return inCategory && matchesName;
+      });
+
+      countsShown.textContent = matches.length;
+
+      if(matches.length === 0){
+        const empty = document.createElement('div');
+        empty.style.gridColumn = '1/-1';
+        empty.style.textAlign = 'center';
+        empty.style.padding = '28px';
+        empty.style.color = 'var(--muted)';
+        empty.textContent = 'No plants found.';
+        gallery.appendChild(empty);
+        return;
+      }
+
+      matches.forEach((p, idx) => {
+        const card = document.createElement('button');
+        card.className = 'card';
+        card.type = 'button';
+        card.setAttribute('aria-label', p.name + ' — view details');
+
+        const img = document.createElement('img');
+        img.src = p.img;
+        img.alt = p.name;
+        img.loading = 'lazy';
+
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        const h3 = document.createElement('h3');
+        h3.textContent = p.name;
+
+        body.appendChild(h3);
+        card.appendChild(img);
+        card.appendChild(body);
+
+        card.addEventListener('click', () => openModal(p));
+        gallery.appendChild(card);
+      });
+    }
+
+    // --- Category filter (called from buttons) ---
+    function filterCategory(cat){
+      activeCategory = String(cat || 'all').toLowerCase();
+      // update active button visuals
+      document.querySelectorAll('.categories button').forEach(b => {
+        const bcat = (b.getAttribute('data-cat')||'').toLowerCase();
+        b.dataset.active = (bcat === activeCategory) ? 'true' : 'false';
+      });
+      // if user clicked a category, clear search
+      // NOTE: keep search as-is so users can combine category+search if they want
+      renderGallery();
+    }
+
+    // --- Search (name only) ---
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = (e.target.value || '').toLowerCase().trim();
+      renderGallery();
+    });
+
+    // --- Modal ---
+    function openModal(plant){
+      modalTitle.textContent = plant.name;
+      modalImage.src = plant.img;
+      modalImage.alt = plant.name;
+      modalTip.textContent = plant.tip;
+      modal.setAttribute('aria-hidden','false');
+      // show modal
+      modal.style.display = 'flex';
+      // prevent background scroll
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal(){
+      modal.setAttribute('aria-hidden','true');
+      modal.style.display = 'none';
+      modalImage.src = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+
+    // close when clicking outside the panel
+    modal.addEventListener('click', (e)=>{
+      if(e.target === modal) closeModal();
+    });
+    // close on ESC
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
+
+    // initial render
+    renderGallery();
+  </script>
+</body>
+</html>
